@@ -5,8 +5,16 @@ use oauth2::{
 use serde::{Deserialize, Serialize};
 use serde_json;
 use worker::*;
-use worker_kv::KvError;
 mod auth;
+mod websocket;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Message {
+    username: String,
+    game: String,
+    avatar: String,
+    url: String,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Callback {
@@ -26,21 +34,69 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
             Response::ok(format!("Version: {VERSION}\nHomepage: {HOMEPAGE}"))
         })
-        .get("/kick/:user", |_req, ctx| {
-            if let Some(user) = ctx.param("user") {
-                // let state = state.clone();
-                let channel = "TODO:channel";
-                let game = "TODO:game";
-
-                return Response::ok(format!("Conheça o canal de {channel} que estava streamando {game}! 💚 Acesse: https://kick.com/{channel}"));
-            }
-
-            Response::error("Bad Request", 400)
-        })
+        .get_async("/kick/:user", shoutout_kick)
+        .get_async("/ws", ws_handler)
         .get_async("/oauth2/kick/login", oauth2_login)
         .get_async("/oauth2/kick/callback", oauth2_callback)
         .run(req, env)
         .await
+}
+
+async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
+    if let Some(user) = ctx.param("user") {
+        let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
+
+        let message = Message {
+            username: username.to_string(),
+            game: "TODO:game".to_string(),
+            avatar: "TODO:avatar".to_string(),
+            url: "kick.com/".to_string(),
+        };
+
+        // Use a internal request to Durable Object
+        let mut url = req.url()?;
+        let mut req_init = RequestInit::new();
+        url.set_path("/internal/send");
+        req_init.with_method(Method::Post);
+        req_init.with_body(Some(serde_json::to_string(&message).unwrap().into()));
+
+        let req_internal = Request::new_with_init(&url.to_string(), &req_init)?;
+
+        // Durable Object
+        let namespace = ctx.durable_object("SHOUTOUT_HUB")?;
+        let stub = namespace.id_from_name("main")?.get_stub()?;
+
+        // Send message to Durable Object
+        // All websocket clients will receive the message
+        let _ = stub.fetch_with_request(req_internal).await;
+
+        // Return text for command
+        let response = format!(
+            "Conheça o canal de {} que estava streamando {}! 💚 Acesse: https://kick.com/{}",
+            message.username, message.game, message.username
+        );
+
+        return Response::ok(response);
+    }
+
+    Response::error("Bad Request", 400)
+}
+
+async fn ws_handler(req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
+    let upgrade_header = match req.headers().get("Upgrade") {
+        Ok(upgrade) => upgrade.unwrap().to_string(),
+        Err(_) => "".to_string(),
+    };
+
+    if upgrade_header != "websocket" {
+        return worker::Response::error("Expected Upgrade: websocket", 426);
+    }
+
+    // Durable Object
+    let namespace = ctx.durable_object("SHOUTOUT_HUB")?;
+    let stub = namespace.id_from_name("main")?.get_stub()?;
+
+    stub.fetch_with_request(req).await
 }
 
 // response_type=code&
