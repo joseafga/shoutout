@@ -24,12 +24,12 @@ pub type SetupClient = Client<
 
 pub async fn client_setup(ctx: &RouteContext<()>) -> Result<SetupClient, ParseError> {
     let client_id = ClientId::new(
-        ctx.secret("SHOUTOUT_CLIENT_ID")
+        ctx.secret("CLIENT_ID")
             .expect("Missing the CLIENT_ID environment variable.")
             .to_string(),
     );
     let client_secret = ClientSecret::new(
-        ctx.secret("SHOUTOUT_CLIENT_SECRET")
+        ctx.secret("CLIENT_SECRET")
             .expect("Missing the CLIENT_SECRET environment variable.")
             .to_string(),
     );
