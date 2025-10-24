@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use oauth2::{
-    AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, Scope, TokenResponse,
-    reqwest,
+    AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RefreshToken, Scope,
+    TokenResponse, reqwest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -22,6 +24,11 @@ struct Callback {
     state: CsrfToken,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Refresh {
+    refresh_token: RefreshToken,
+}
+
 #[event(fetch, respond_with_errors)]
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     let router = Router::new();
@@ -38,13 +45,14 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .get_async("/ws", ws_handler)
         .get_async("/oauth2/kick/login", oauth2_login)
         .get_async("/oauth2/kick/callback", oauth2_callback)
+        .get_async("/oauth2/kick/refresh", oauth2_refresh)
         .run(req, env)
         .await
 }
 
 async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
     if let Some(user) = ctx.param("user") {
-        let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
+        let username = user.strip_prefix('@').unwrap_or(user).trim().to_lowercase(); // sanitize username
 
         let message = Message {
             username: username.to_string(),
@@ -160,13 +168,47 @@ async fn oauth2_callback(req: Request, ctx: RouteContext<()>) -> worker::Result<
         .await;
 
     match token_result {
-        Ok(token) => {
-            kv.put("token", token.access_token().secret())?
-                .execute()
-                .await?;
-        }
+        // TODO: not wrinting to KV temporary
+        // require better flow to request
+        Ok(token) => Response::ok(format!(
+            "Token: {} {}\nRefresh Token: {}\nExpires in {} seconds\nScopes: {:?}",
+            token.token_type().as_ref().to_string(),
+            token.access_token().secret(),
+            token.refresh_token().unwrap().secret(),
+            token.expires_in().unwrap_or(Duration::ZERO).as_secs(),
+            token.scopes()
+        )),
         Err(_) => return Response::error("Token creation failed", 500),
     }
+}
 
-    Response::ok("Token successfully created!")
+// refresh_token (string): Code received during the Authorization Flow
+// client_id (string): Your application's client ID
+// client_secret (string): Your application's client secret
+// grant_type (string): refresh_token
+async fn oauth2_refresh(req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
+    let query: Refresh = match req.query() {
+        Ok(q) => q,
+        Err(_) => return Response::error("Bad Request", 400),
+    };
+
+    let client = auth::client_setup(&ctx).await.unwrap();
+    let token_result = client
+        .exchange_refresh_token(&query.refresh_token)
+        .request_async(&reqwest::Client::new())
+        .await;
+
+    match token_result {
+        // TODO: not wrinting to KV temporary
+        // require better flow to request
+        Ok(token) => Response::ok(format!(
+            "Token: {} {}\nRefresh Token: {}\nExpires in {} seconds\nScopes: {:?}",
+            token.token_type().as_ref().to_string(),
+            token.access_token().secret(),
+            token.refresh_token().unwrap().secret(),
+            token.expires_in().unwrap_or(Duration::ZERO).as_secs(),
+            token.scopes()
+        )),
+        Err(_) => return Response::error("Token creation failed", 500),
+    }
 }
