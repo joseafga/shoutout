@@ -131,9 +131,10 @@ async fn oauth2_login(_: Request, ctx: RouteContext<()>) -> worker::Result<Respo
         .url();
 
     // Store current login state
-    let key = format!("token:kick:{}", csrf_token.secret());
+    let key = format!("tmp:kick:{}", csrf_token.secret());
     ctx.kv("shoutout")?
         .put(key.as_str(), pkce_verifier.secret())?
+        .expiration_ttl(1800) // 30 mintutes
         .execute()
         .await?;
 
@@ -149,7 +150,7 @@ async fn oauth2_callback(req: Request, ctx: RouteContext<()>) -> worker::Result<
 
     // Restore login data
     let kv = ctx.kv("shoutout")?;
-    let key = format!("token:kick:{}", query.state.secret());
+    let key = format!("tmp:kick:{}", query.state.secret());
     let pkce_verifier = match kv.get(key.as_str()).text().await? {
         Some(value) => {
             console_debug!("KV key has found {}: {}", key, value);
