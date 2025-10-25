@@ -134,7 +134,7 @@ async fn oauth2_login(_: Request, ctx: RouteContext<()>) -> worker::Result<Respo
     let key = format!("tmp:kick:{}", csrf_token.secret());
     ctx.kv("shoutout")?
         .put(key.as_str(), pkce_verifier.secret())?
-        .expiration_ttl(1800) // 30 mintutes
+        .expiration_ttl(600) // 10 minutes
         .execute()
         .await?;
 
