@@ -42,6 +42,7 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             Response::ok(format!("Version: {VERSION}\nHomepage: {HOMEPAGE}"))
         })
         .get_async("/kick/:user", shoutout_kick)
+        .get_async("/kick/simple/:user", shoutout_simple_kick)
         .get_async("/ws", ws_handler)
         .get_async("/oauth2/kick/login", oauth2_login)
         .get_async("/oauth2/kick/callback", oauth2_callback)
@@ -50,9 +51,10 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .await
 }
 
+// TODO: Use Kick API to retrieve channel information
 async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
     if let Some(user) = ctx.param("user") {
-        let username = user.strip_prefix('@').unwrap_or(user).trim().to_lowercase(); // sanitize username
+        let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
 
         let message = Message {
             username: username.to_string(),
@@ -81,7 +83,27 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
         // Return text for command
         let response = format!(
             "Conheça o canal de {} que estava streamando {}! 💚 Acesse: https://kick.com/{}",
-            message.username, message.game, message.username
+            message.username,
+            message.game,
+            message.username.to_lowercase()
+        );
+
+        return Response::ok(response);
+    }
+
+    Response::error("Bad Request", 400)
+}
+
+// Workaround until Kick implements a good API
+async fn shoutout_simple_kick(_req: Request, ctx: RouteContext<()>) -> worker::Result<Response> {
+    if let Some(user) = ctx.param("user") {
+        let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
+
+        // Return text for command
+        let response = format!(
+            "Conheça o canal de {}! 💚 Acesse: https://kick.com/{}",
+            username,
+            username.to_lowercase()
         );
 
         return Response::ok(response);
