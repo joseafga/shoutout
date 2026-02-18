@@ -66,9 +66,15 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
             Err(_) => return Response::error("Parsing JSON Error. {response:?}", 500),
         };
 
+        // set game
+        let game = match json.recent_categories.first() {
+            Some(game) => game.name.to_string(),
+            None => "¯\\_(ツ)_/¯".to_string(),
+        };
+
         let message = Message {
             username: username.to_string(),
-            game: json.recent_categories[0].name.to_string(),
+            game: game,
             avatar: json.user.profile_pic.to_string(),
             url: format!("kick.com/{}", username.to_lowercase()),
         };
