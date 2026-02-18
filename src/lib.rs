@@ -1,13 +1,12 @@
-use std::time::Duration;
-
 use oauth2::{
     AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RefreshToken, Scope,
-    TokenResponse, reqwest,
+    TokenResponse,
 };
 use serde::{Deserialize, Serialize};
-use serde_json;
+use std::time::Duration;
 use worker::*;
 mod auth;
+mod kick;
 mod websocket;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -56,39 +55,53 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
     if let Some(user) = ctx.param("user") {
         let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
 
-        let message = Message {
-            username: username.to_string(),
-            game: "TODO:game".to_string(),
-            avatar: "TODO:avatar".to_string(),
-            url: "kick.com/".to_string(),
+        let request = reqwest::get(format!("https://kick.com/api/v1/channels/{user}")).await;
+        let response = match request {
+            Ok(request) => request.json::<kick::Channel>().await,
+            Err(_) => return Response::error("Internal Server Error", 500),
         };
 
-        // Use a internal request to Durable Object
-        let mut url = req.url()?;
-        let mut req_init = RequestInit::new();
-        url.set_path("/internal/send");
-        req_init.with_method(Method::Post);
-        req_init.with_body(Some(serde_json::to_string(&message).unwrap().into()));
+        let json = match response {
+            Ok(response) => response,
+            Err(_) => return Response::error("Parsing JSON Error. {response:?}", 500),
+        };
 
-        let req_internal = Request::new_with_init(&url.to_string(), &req_init)?;
+        let message = Message {
+            username: username.to_string(),
+            game: json.recent_categories[0].name.to_string(),
+            avatar: json.user.profile_pic.to_string(),
+            url: format!("kick.com/{}", username.to_lowercase()),
+        };
 
-        // Durable Object
-        let namespace = ctx.durable_object("SHOUTOUT_HUB")?;
-        let stub = namespace.id_from_name("main")?.get_stub()?;
+        // // Use a internal request to Durable Object
+        // let mut url = req.url()?;
+        // let mut req_init = RequestInit::new();
+        // url.set_path("/internal/send");
+        // req_init.with_method(Method::Post);
+        // req_init.with_body(Some(serde_json::to_string(&message).unwrap().into()));
 
-        // Send message to Durable Object
-        // All websocket clients will receive the message
-        let _ = stub.fetch_with_request(req_internal).await;
+        // let req_internal = Request::new_with_init(&url.to_string(), &req_init)?;
+
+        // // Durable Object
+        // let namespace = ctx.durable_object("SHOUTOUT_HUB")?;
+        // let stub = namespace.id_from_name("main")?.get_stub()?;
+
+        // // Send message to Durable Object
+        // // All websocket clients will receive the message
+        // let _ = stub.fetch_with_request(req_internal).await;
+
+        let is_live = match json.livestream {
+            Some(livestream) => livestream.is_live,
+            None => false,
+        };
+
+        let status = if is_live { "está" } else { "estava" };
 
         // Return text for command
-        let response = format!(
-            "Conheça o canal de {} que estava streamando {}! 💚 Acesse: https://kick.com/{}",
-            message.username,
-            message.game,
-            message.username.to_lowercase()
-        );
-
-        return Response::ok(response);
+        return Response::ok(format!(
+            "Conheça o canal de {} que {status} streamando {}! 💚 Acesse: {}",
+            message.username, message.game, message.url
+        ));
     }
 
     Response::error("Bad Request", 400)
