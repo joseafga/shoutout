@@ -187,7 +187,7 @@ async fn oauth2_callback(req: Request, ctx: RouteContext<()>) -> worker::Result<
         .exchange_code(query.code)
         // Set the PKCE code verifier.
         .set_pkce_verifier(pkce_verifier)
-        .request_async(&reqwest::Client::new())
+        .request_async(&oauth2::reqwest::Client::new())
         .await;
 
     match token_result {
@@ -218,7 +218,7 @@ async fn oauth2_refresh(req: Request, ctx: RouteContext<()>) -> worker::Result<R
     let client = auth::client_setup(&ctx).await.unwrap();
     let token_result = client
         .exchange_refresh_token(&query.refresh_token)
-        .request_async(&reqwest::Client::new())
+        .request_async(&oauth2::reqwest::Client::new())
         .await;
 
     match token_result {
