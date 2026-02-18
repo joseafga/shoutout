@@ -8,11 +8,12 @@ authors = ["José Almeida <jose.afga@gmail.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = { version = "0.6", features = ['http', 'axum'] }
-worker-macros = { version = "0.6", features = ['http'] }
+worker = { version = "0.7", features = ['http', 'axum'] }
+worker-macros = { version = "0.7", features = ['http'] }
 axum = { version = "0.8", default-features = false }
 tower-service = "0.3.3"
 serde = "1.0.228"
 serde_json = "1.0.145"
 worker-kv = "0.9.0"
 oauth2 = "5.0.0"
+reqwest = { version = "0.12", features = ["json"] }
