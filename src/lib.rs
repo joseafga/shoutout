@@ -11,11 +11,11 @@ mod kick;
 mod websocket;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Message {
-    username: String,
-    game: String,
-    avatar: String,
-    url: String,
+struct Message<'a> {
+    username: &'a str,
+    game: &'a str,
+    avatar: &'a str,
+    url: &'a str,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -70,15 +70,15 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
 
         // set game
         let game = match json.recent_categories.first() {
-            Some(game) => game.name.to_string(),
-            None => r#"¯\_(ツ)_/¯"#.to_string(),
+            Some(game) => &game.name,
+            None => r#"¯\_(ツ)_/¯"#,
         };
 
         let message = Message {
-            username: username.to_string(),
+            username: username,
             game: game,
-            avatar: json.user.profile_pic.to_string(),
-            url: format!("kick.com/{}", username.to_lowercase()),
+            avatar: &json.user.profile_pic,
+            url: &format!("kick.com/{}", username.to_lowercase()),
         };
 
         // // Use a internal request to Durable Object
