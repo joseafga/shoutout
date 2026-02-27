@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use worker::*;
 mod auth;
+mod cloud_pass;
 mod kick;
 mod websocket;
 
@@ -55,21 +56,22 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
     if let Some(user) = ctx.param("user") {
         let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
 
-        let request = reqwest::get(format!("https://kick.com/api/v1/channels/{user}")).await;
-        let response = match request {
-            Ok(request) => request.json::<kick::Channel>().await,
-            Err(_) => return Response::error("Internal Server Error", 500),
-        };
-
-        let json = match response {
-            Ok(response) => response,
-            Err(_) => return Response::error("Parsing JSON Error. {response:?}", 500),
+        let url = format!("https://kick.com/api/v1/channels/{username}");
+        let json = match cloud_pass::CloudPass::get(&url).await {
+            Ok(content) => {
+                let channel: kick::Channel = serde_json::from_str(&content).unwrap();
+                channel
+            }
+            Err(e) => {
+                console_error!("Internal Server Error: {e}");
+                return Response::error("Internal Server Error", 500);
+            }
         };
 
         // set game
         let game = match json.recent_categories.first() {
             Some(game) => game.name.to_string(),
-            None => "¯\\_(ツ)_/¯".to_string(),
+            None => r#"¯\_(ツ)_/¯"#.to_string(),
         };
 
         let message = Message {
