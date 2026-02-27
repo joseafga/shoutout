@@ -51,14 +51,6 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SubscriberBadge {
-    pub id: u64,
-    pub channel_id: u64,
-    pub months: u32,
-    pub badge_image: ResponsiveImage,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct Category {
     pub id: u64,
     pub category_id: u64,
@@ -89,36 +81,6 @@ pub struct CategoryType {
     pub name: String,
     pub slug: String,
     pub icon: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Chatroom {
-    pub id: u64,
-    pub chatable_type: String,
-    pub channel_id: u64,
-    pub created_at: String,
-    pub updated_at: String,
-    pub chat_mode_old: String,
-    pub chat_mode: String,
-    pub slow_mode: bool,
-    pub chatable_id: u64,
-    pub followers_mode: bool,
-    pub subscribers_mode: bool,
-    pub emotes_mode: bool,
-    pub message_interval: u32,
-    pub following_min_duration: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AscendingLink {
-    pub id: u64,
-    pub channel_id: u64,
-    pub description: String,
-    pub link: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub order: u32,
-    pub title: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
