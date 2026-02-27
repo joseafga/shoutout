@@ -1,6 +1,6 @@
 [package]
 name = "shoutout"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["José Almeida <jose.afga@gmail.com>"]
 
@@ -24,3 +24,7 @@ regex = "1.12"
 scraper = "0.25"
 url = "2.5"
 getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[profile.release]
+strip = true
+opt-level = "s"
