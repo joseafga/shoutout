@@ -78,7 +78,7 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
             username: username,
             game: game,
             avatar: &json.user.profile_pic,
-            url: &format!("kick.com/{}", username.to_lowercase()),
+            url: &format!("https://kick.com/{}", username.to_lowercase()),
         };
 
         // // Use a internal request to Durable Object
