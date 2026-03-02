@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use worker::*;
 mod auth;
-mod cloud_pass;
+mod cloudpass;
 mod kick;
 mod websocket;
 
@@ -57,7 +57,7 @@ async fn shoutout_kick(req: Request, ctx: RouteContext<()>) -> worker::Result<Re
         let username = user.strip_prefix('@').unwrap_or(user).trim(); // sanitize username
 
         let url = format!("https://kick.com/api/v1/channels/{username}");
-        let json = match cloud_pass::CloudPass::get(&url).await {
+        let json = match cloudpass::Cloudpass::get(&url).await {
             Ok(content) => {
                 let channel: kick::Channel = serde_json::from_str(&content).unwrap();
                 channel

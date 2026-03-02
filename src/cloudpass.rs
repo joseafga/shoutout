@@ -7,9 +7,9 @@ use std::time::Duration;
 use url::Url;
 use worker::{Delay, Fetch, Headers, Request, RequestInit, RequestRedirect};
 
-pub struct CloudPass;
+pub struct Cloudpass;
 
-impl CloudPass {
+impl Cloudpass {
     pub async fn get(url: &str) -> Result<String> {
         let headers = Headers::new();
         headers.set(
